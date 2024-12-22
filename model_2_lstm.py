@@ -8,6 +8,7 @@ from sklearn.metrics import confusion_matrix, accuracy_score
 from keras.models import Sequential
 from keras.layers import Dense, Input, LSTM, Dropout, RepeatVector, TimeDistributed
 from keras.losses import CategoricalCrossentropy
+from keras.optimizers import Adam
 
 # Sometimes the importing is slow, so this is just a message to confirm the completion of it.
 print("")
@@ -58,13 +59,13 @@ test_data = df.iloc[int((0.75)*len(df.index)):, :]
 
 # Splitting the subsets into x and y, scaling the independent variables (x) using the MinMaxScaler() method
 train_x, train_y = data_split(train_data)
-train_x = train_x.reshape((len(train_x), 10, 1))
+train_x = train_x.reshape((train_x.shape[0], 1, 10))
 
 val_x, val_y = data_split(val_data)
-val_x = val_x.reshape((len(val_x), 10, 1))
+val_x = val_x.reshape((val_x.shape[0], 1, 10))
 
 test_x, test_y = data_split(test_data)
-test_x = test_x.reshape((len(test_x), 10, 1))
+test_x = test_x.reshape((test_x.shape[0], 1, 10))
 
 print("Training data:",train_x.shape,train_y.shape)
 print("Validation data:",val_x.shape,val_y.shape)
@@ -73,23 +74,24 @@ print("")
 
 # Defining LSTM autoencoder
 lstm = Sequential()
-lstm.add(Input(shape=(len(train_x),10)))
+lstm.add(Input(shape=(1,10)))
 lstm.add(LSTM(128, activation="relu", return_sequences=True))
 lstm.add(Dropout(0.2))
 lstm.add(LSTM(64, activation="relu", return_sequences=False))
 lstm.add(Dropout(0.2))
-lstm.add(RepeatVector(len(train_x)))
+lstm.add(RepeatVector(1))
 
 lstm.add(LSTM(64, activation="relu", return_sequences=True))
 lstm.add(Dropout(0.2))
-lstm.add(LSTM(128, activation="relu", return_sequences=True))
+lstm.add(LSTM(128, activation="sigmoid", return_sequences=True))
 lstm.add(Dropout(0.2))
 lstm.add(TimeDistributed(Dense(10)))
 lstm.summary()
 
 # Compile and train model
-lstm.compile(optimizer="adam", loss="mse")
-model_hist = lstm.fit(train_x, train_x, batch_size=64, epochs=100, verbose=0, validation_data=(val_x,val_x))
+opt = Adam(learning_rate=0.2)
+lstm.compile(optimizer=opt, loss="mse", metrics=['accuracy'])
+model_hist = lstm.fit(train_x, train_x, batch_size=256, epochs=15, verbose=1, validation_data=(val_x,val_x))
 score,acc = lstm.evaluate(train_x,train_x, batch_size=64)
 print("Training score:",score)
 print("Training accuracy:",acc)
